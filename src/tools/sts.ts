@@ -3,7 +3,7 @@ import { sts } from "../awsClients.js";
 import { AssumeRoleCommand } from "@aws-sdk/client-sts";
 
 export const stsAssume = {
-  name: "aws.sts_assume_role",
+  name: "aws_sts_assume_role",
   description: "Assume an AWS IAM role and return temporary credentials (use cautiously).",
   inputSchema: z.object({
     roleArn: z.string().optional(),

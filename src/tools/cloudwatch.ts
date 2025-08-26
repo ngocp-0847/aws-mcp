@@ -3,7 +3,7 @@ import { cwl } from "../awsClients.js";
 import { StartQueryCommand, GetQueryResultsCommand } from "@aws-sdk/client-cloudwatch-logs";
 
 export const cwQuery = {
-  name: "aws.cw_logs_query",
+  name: "aws_cw_logs_query",
   description: "Run a CloudWatch Logs Insights query and wait for results (short windows).",
   inputSchema: z.object({
     logGroup: z.string(),

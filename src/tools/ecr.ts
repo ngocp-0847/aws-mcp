@@ -3,7 +3,7 @@ import { ecr } from "../awsClients.js";
 import { ListImagesCommand, DescribeImagesCommand } from "@aws-sdk/client-ecr";
 
 export const ecrListImages = {
-  name: "aws.ecr_list_images",
+  name: "aws_ecr_list_images",
   description: "List ECR images and details.",
   inputSchema: z.object({
     repositoryName: z.string(),

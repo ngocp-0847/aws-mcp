@@ -3,7 +3,7 @@ import { ecs } from "../awsClients.js";
 import { ListTasksCommand, DescribeTasksCommand } from "@aws-sdk/client-ecs";
 
 export const ecsListTasks = {
-  name: "aws.ecs_list_tasks",
+  name: "aws_ecs_list_tasks",
   description: "List and describe ECS tasks for a cluster/service.",
   inputSchema: z.object({
     cluster: z.string(),

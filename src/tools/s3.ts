@@ -4,7 +4,7 @@ import { ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-s
 import { Readable } from "node:stream";
 
 export const s3List = {
-  name: "aws.s3_list",
+  name: "aws_s3_list",
   description: "List objects in S3 (bucket/prefix).",
   inputSchema: z.object({
     bucket: z.string(),
@@ -28,7 +28,7 @@ async function streamToString(stream: Readable): Promise<string> {
 }
 
 export const s3GetText = {
-  name: "aws.s3_get_text",
+  name: "aws_s3_get_text",
   description: "Get an S3 object as text.",
   inputSchema: z.object({
     bucket: z.string(),
@@ -42,7 +42,7 @@ export const s3GetText = {
 };
 
 export const s3PutText = {
-  name: "aws.s3_put_text",
+  name: "aws_s3_put_text",
   description: "Put a text object to S3.",
   inputSchema: z.object({
     bucket: z.string(),

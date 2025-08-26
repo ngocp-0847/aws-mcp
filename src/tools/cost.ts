@@ -3,7 +3,7 @@ import { cost } from "../awsClients.js";
 import { GetCostAndUsageCommand } from "@aws-sdk/client-cost-explorer";
 
 export const ceGetCost = {
-  name: "aws.cost_explorer_get_cost",
+  name: "aws_cost_explorer_get_cost",
   description: "Get AWS cost by time range (USD).",
   inputSchema: z.object({
     start: z.string(), // YYYY-MM-DD

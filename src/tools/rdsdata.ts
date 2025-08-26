@@ -3,7 +3,7 @@ import { rdsdata } from "../awsClients.js";
 import { ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
 
 export const rdsExecute = {
-  name: "aws.rdsdata_execute",
+  name: "aws_rdsdata_execute",
   description: "Execute SQL via RDS Data API (Aurora Serverless v2).",
   inputSchema: z.object({
     resourceArn: z.string(), // cluster or db ARN

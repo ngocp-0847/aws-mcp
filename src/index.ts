@@ -1,5 +1,12 @@
 import 'dotenv/config';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { s3List, s3GetText, s3PutText } from "./tools/s3.js";
@@ -14,6 +21,10 @@ import { ceGetCost } from "./tools/cost.js";
 const server = new Server({
   name: "mcp-aws",
   version: "0.1.0"
+}, {
+  capabilities: {
+    tools: {}
+  }
 });
 
 const tools = [
@@ -27,8 +38,49 @@ const tools = [
   ceGetCost
 ];
 
-for (const t of tools) {
-  server.tool(t.name, t.description, t.inputSchema as z.ZodTypeAny, t.handler);
+// List tools handler
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: tools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema
+    }))
+  };
+});
+
+// Call tool handler
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  
+  const tool = tools.find(t => t.name === name);
+  if (!tool) {
+    throw new McpError(ErrorCode.MethodNotFound, `Tool ${name} not found`);
+  }
+
+  try {
+    const result = await tool.handler(args);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  } catch (error) {
+    throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error}`);
+  }
+});
+
+// Start the server
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("MCP AWS server running on stdio");
 }
 
-server.start(); // stdio
+main().catch((error) => {
+  console.error("Server failed to start:", error);
+  process.exit(1);
+});

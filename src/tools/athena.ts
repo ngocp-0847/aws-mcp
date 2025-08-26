@@ -3,7 +3,7 @@ import { athena } from "../awsClients.js";
 import { StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } from "@aws-sdk/client-athena";
 
 export const athenaQuery = {
-  name: "aws.athena_query",
+  name: "aws_athena_query",
   description: "Run an Athena query and wait for results (best for small/medium result sets).",
   inputSchema: z.object({
     database: z.string(),
