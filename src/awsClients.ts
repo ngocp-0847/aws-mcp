@@ -1,0 +1,24 @@
+import 'dotenv/config';
+import {
+  S3Client, 
+} from '@aws-sdk/client-s3';
+import {
+  CloudWatchLogsClient,
+} from '@aws-sdk/client-cloudwatch-logs';
+import { ECSClient } from '@aws-sdk/client-ecs';
+import { ECRClient } from '@aws-sdk/client-ecr';
+import { RDSDataClient } from '@aws-sdk/client-rds-data';
+import { STSClient } from '@aws-sdk/client-sts';
+import { AthenaClient } from '@aws-sdk/client-athena';
+import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
+
+const region = process.env.AWS_REGION || 'ap-northeast-1';
+
+export const s3 = new S3Client({ region });
+export const cwl = new CloudWatchLogsClient({ region });
+export const ecs = new ECSClient({ region });
+export const ecr = new ECRClient({ region });
+export const rdsdata = new RDSDataClient({ region });
+export const sts = new STSClient({ region });
+export const athena = new AthenaClient({ region });
+export const cost = new CostExplorerClient({ region });
