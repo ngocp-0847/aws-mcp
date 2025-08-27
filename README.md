@@ -55,6 +55,10 @@ Set the following environment variables in `.env`:
 ### RDS Data API
 - `aws.rdsdata_execute`: Execute SQL via RDS Data API
 
+### RDS Monitoring
+- `aws.rds_get_cpu_metrics`: Get CPU utilization metrics for RDS instance
+- `aws.rds_performance_insights_top_sql`: Get top SQL queries from Performance Insights
+
 ### Athena
 - `aws.athena_query`: Run Athena query
 

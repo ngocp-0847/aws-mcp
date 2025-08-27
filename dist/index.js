@@ -8,6 +8,7 @@ import { cwQuery } from "./tools/cloudwatch.js";
 import { ecsListTasks } from "./tools/ecs.js";
 import { ecrListImages } from "./tools/ecr.js";
 import { rdsExecute } from "./tools/rdsdata.js";
+import { rdsGetCpuMetrics, rdsGetTopSql } from "./tools/rds.js";
 import { athenaQuery } from "./tools/athena.js";
 import { stsAssume } from "./tools/sts.js";
 import { ceGetCost } from "./tools/cost.js";
@@ -25,6 +26,8 @@ const tools = [
     ecsListTasks,
     ecrListImages,
     rdsExecute,
+    rdsGetCpuMetrics,
+    rdsGetTopSql,
     athenaQuery,
     stsAssume,
     ceGetCost

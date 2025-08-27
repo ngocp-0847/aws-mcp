@@ -15,10 +15,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-athena": "^3.632.0",
+    "@aws-sdk/client-cloudwatch": "^3.876.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.632.0",
     "@aws-sdk/client-cost-explorer": "^3.632.0",
     "@aws-sdk/client-ecr": "^3.632.0",
     "@aws-sdk/client-ecs": "^3.632.0",
+    "@aws-sdk/client-pi": "^3.876.0",
+    "@aws-sdk/client-rds": "^3.876.0",
     "@aws-sdk/client-rds-data": "^3.632.0",
     "@aws-sdk/client-s3": "^3.632.0",
     "@aws-sdk/client-sts": "^3.632.0",

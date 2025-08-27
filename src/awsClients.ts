@@ -5,9 +5,12 @@ import {
 import {
   CloudWatchLogsClient,
 } from '@aws-sdk/client-cloudwatch-logs';
+import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { ECRClient } from '@aws-sdk/client-ecr';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
+import { RDSClient } from '@aws-sdk/client-rds';
+import { PIClient } from '@aws-sdk/client-pi';
 import { STSClient } from '@aws-sdk/client-sts';
 import { AthenaClient } from '@aws-sdk/client-athena';
 import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
@@ -16,9 +19,12 @@ const region = process.env.AWS_REGION || 'ap-northeast-1';
 
 export const s3 = new S3Client({ region });
 export const cwl = new CloudWatchLogsClient({ region });
+export const cw = new CloudWatchClient({ region });
 export const ecs = new ECSClient({ region });
 export const ecr = new ECRClient({ region });
+export const rds = new RDSClient({ region });
 export const rdsdata = new RDSDataClient({ region });
+export const pi = new PIClient({ region });
 export const sts = new STSClient({ region });
 export const athena = new AthenaClient({ region });
 export const cost = new CostExplorerClient({ region });
