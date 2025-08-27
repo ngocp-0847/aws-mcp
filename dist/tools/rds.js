@@ -3,14 +3,40 @@ import { cw, rds, pi } from "../awsClients.js";
 import { GetMetricStatisticsCommand } from "@aws-sdk/client-cloudwatch";
 import { DescribeDBInstancesCommand } from "@aws-sdk/client-rds";
 import { DescribeDimensionKeysCommand, GetDimensionKeyDetailsCommand } from "@aws-sdk/client-pi";
+import { createParameterPrompts } from "../parameterHandler.js";
+const rdsGetCpuMetricsSchema = z.object({
+    dbInstanceIdentifier: z.string().describe("RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'"),
+    startMinutesAgo: z.number().int().min(1).max(1440).default(60).describe("How many minutes ago to start collecting data (optional, default: 60 = last hour)"),
+    endMinutesAgo: z.number().int().min(0).max(1439).default(0).describe("How many minutes ago to end data collection (optional, default: 0 = now)"),
+    periodMinutes: z.number().int().min(1).max(1440).default(5).describe("Data point interval in minutes (optional, default: 5 = every 5 minutes)")
+});
 export const rdsGetCpuMetrics = {
     name: "aws_rds_get_cpu_metrics",
     description: "Get CPU utilization metrics for RDS instance by name. Monitor database performance over time with detailed CPU statistics (avg/max/min percentages). Essential for performance monitoring and capacity planning. Only requires dbInstanceIdentifier - other parameters optional.",
-    inputSchema: z.object({
-        dbInstanceIdentifier: z.string().describe("RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'"),
-        startMinutesAgo: z.number().int().min(1).max(1440).default(60).describe("How many minutes ago to start collecting data (optional, default: 60 = last hour)"),
-        endMinutesAgo: z.number().int().min(0).max(1439).default(0).describe("How many minutes ago to end data collection (optional, default: 0 = now)"),
-        periodMinutes: z.number().int().min(1).max(1440).default(5).describe("Data point interval in minutes (optional, default: 5 = every 5 minutes)")
+    inputSchema: rdsGetCpuMetricsSchema,
+    parameterPrompts: createParameterPrompts(rdsGetCpuMetricsSchema, {
+        dbInstanceIdentifier: {
+            description: "RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'",
+            examples: ["mi-test-2", "prod-mysql-01", "dev-postgres", "staging-aurora"]
+        },
+        startMinutesAgo: {
+            description: "How many minutes ago to start collecting data (optional, default: 60 = last hour)",
+            validation: { min: 1, max: 1440 },
+            defaultValue: 60,
+            examples: ["60", "120", "240", "1440"]
+        },
+        endMinutesAgo: {
+            description: "How many minutes ago to end data collection (optional, default: 0 = now)",
+            validation: { min: 0, max: 1439 },
+            defaultValue: 0,
+            examples: ["0", "30", "60"]
+        },
+        periodMinutes: {
+            description: "Data point interval in minutes (optional, default: 5 = every 5 minutes)",
+            validation: { min: 1, max: 1440 },
+            defaultValue: 5,
+            examples: ["1", "5", "15", "60"]
+        }
     }),
     handler: async (input) => {
         const now = new Date();
@@ -68,15 +94,46 @@ export const rdsGetCpuMetrics = {
         }
     }
 };
+const rdsGetTopSqlSchema = z.object({
+    dbInstanceIdentifier: z.string().describe("RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'"),
+    startMinutesAgo: z.number().int().min(5).max(10080).default(60).describe("How many minutes ago to start analysis (optional, default: 60 = last hour, min: 5, max: 10080 = 7 days)"),
+    endMinutesAgo: z.number().int().min(1).max(10079).default(5).describe("How many minutes ago to end analysis (optional, default: 5 = 5 minutes ago, min: 1 for data availability)"),
+    maxItems: z.number().int().min(1).max(100).default(10).describe("Maximum number of top SQL queries to return (optional, default: 10, max: 100)"),
+    filterType: z.enum(["CPU", "IO", "Lock", "All"]).default("All").describe("Filter by wait event type (optional, default: All) - CPU: CPU-bound queries, IO: I/O-bound, Lock: lock-related, All: all types")
+});
 export const rdsGetTopSql = {
     name: "aws_rds_performance_insights_top_sql",
     description: "Get top slow SQL queries ranked by database load (AAS - Average Active Sessions) from RDS Performance Insights. Identifies resource-intensive queries causing performance issues. Shows actual SQL statements with load metrics. Only requires dbInstanceIdentifier. Optional: filter by CPU/IO/Lock, adjust time range, limit results. Requires Performance Insights enabled on RDS instance.",
-    inputSchema: z.object({
-        dbInstanceIdentifier: z.string().describe("RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'"),
-        startMinutesAgo: z.number().int().min(5).max(10080).default(60).describe("How many minutes ago to start analysis (optional, default: 60 = last hour, min: 5, max: 10080 = 7 days)"),
-        endMinutesAgo: z.number().int().min(1).max(10079).default(5).describe("How many minutes ago to end analysis (optional, default: 5 = 5 minutes ago, min: 1 for data availability)"),
-        maxItems: z.number().int().min(1).max(100).default(10).describe("Maximum number of top SQL queries to return (optional, default: 10, max: 100)"),
-        filterType: z.enum(["CPU", "IO", "Lock", "All"]).default("All").describe("Filter by wait event type (optional, default: All) - CPU: CPU-bound queries, IO: I/O-bound, Lock: lock-related, All: all types")
+    inputSchema: rdsGetTopSqlSchema,
+    parameterPrompts: createParameterPrompts(rdsGetTopSqlSchema, {
+        dbInstanceIdentifier: {
+            description: "RDS DB instance identifier/name (required) - exact name like 'mi-test-2', 'prod-mysql-01'",
+            examples: ["mi-test-2", "prod-mysql-01", "dev-postgres", "staging-aurora"]
+        },
+        startMinutesAgo: {
+            description: "How many minutes ago to start analysis (optional, default: 60 = last hour, min: 5, max: 10080 = 7 days)",
+            validation: { min: 5, max: 10080 },
+            defaultValue: 60,
+            examples: ["60", "240", "1440", "10080"]
+        },
+        endMinutesAgo: {
+            description: "How many minutes ago to end analysis (optional, default: 5 = 5 minutes ago, min: 1 for data availability)",
+            validation: { min: 1, max: 10079 },
+            defaultValue: 5,
+            examples: ["5", "10", "30", "60"]
+        },
+        maxItems: {
+            description: "Maximum number of top SQL queries to return (optional, default: 10, max: 100)",
+            validation: { min: 1, max: 100 },
+            defaultValue: 10,
+            examples: ["5", "10", "20", "50"]
+        },
+        filterType: {
+            description: "Filter by wait event type (optional, default: All)",
+            validation: { options: ["CPU", "IO", "Lock", "All"] },
+            defaultValue: "All",
+            examples: ["All", "CPU", "IO", "Lock"]
+        }
     }),
     handler: async (input) => {
         const now = new Date();

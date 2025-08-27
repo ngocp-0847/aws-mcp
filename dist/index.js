@@ -3,6 +3,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "./debug.js";
+import { ParameterValidator } from "./parameterHandler.js";
 import { s3List, s3GetText, s3PutText, s3ListBuckets } from "./tools/s3.js";
 import { cwQuery } from "./tools/cloudwatch.js";
 import { ecsListTasks } from "./tools/ecs.js";
@@ -51,10 +52,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         logger.error(`Tool not found: ${name}`);
         throw new McpError(ErrorCode.MethodNotFound, `Tool ${name} not found`);
     }
+    // Validate parameters using the new parameter handler
+    const validation = ParameterValidator.validateParameters(tool, args);
+    if (!validation.isValid) {
+        if (validation.missingParams.length > 0) {
+            // Generate user-friendly prompt for missing required parameters
+            const promptMessage = ParameterValidator.generateParameterPrompt(name, validation.missingParams);
+            logger.error(`Tool ${name} called with missing required parameters`, validation.missingParams.map(p => p.name));
+            throw new McpError(ErrorCode.InvalidParams, promptMessage);
+        }
+        if (validation.validationErrors.length > 0) {
+            // Generate validation error message
+            const errorMessage = ParameterValidator.generateValidationErrorMessage(name, validation.validationErrors);
+            logger.error(`Tool ${name} called with invalid parameters`, validation.validationErrors);
+            throw new McpError(ErrorCode.InvalidParams, errorMessage);
+        }
+    }
     try {
-        logger.debug(`Executing tool: ${name}`);
+        logger.debug(`Executing tool: ${name} with validated input`);
         const startTime = Date.now();
-        const result = await tool.handler(args);
+        const result = await tool.handler(validation.validatedInput);
         const duration = Date.now() - startTime;
         logger.debug(`Tool ${name} completed in ${duration}ms`);
         logger.debug(`Tool ${name} result size: ${JSON.stringify(result).length} characters`);

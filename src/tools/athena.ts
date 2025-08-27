@@ -1,14 +1,35 @@
 import { z } from "zod";
 import { athena } from "../awsClients.js";
 import { StartQueryExecutionCommand, GetQueryExecutionCommand, GetQueryResultsCommand } from "@aws-sdk/client-athena";
+import { createParameterPrompts } from "../parameterHandler.js";
+
+const athenaQuerySchema = z.object({
+  database: z.string(),
+  workgroup: z.string(),
+  sql: z.string()
+});
 
 export const athenaQuery = {
   name: "aws_athena_query",
   description: "Run an Athena query and wait for results (best for small/medium result sets).",
-  inputSchema: z.object({
-    database: z.string(),
-    workgroup: z.string(),
-    sql: z.string()
+  inputSchema: athenaQuerySchema,
+  parameterPrompts: createParameterPrompts(athenaQuerySchema, {
+    database: {
+      description: "Athena database name (required) - target database for the query",
+      examples: ["default", "analytics", "data_lake", "prod_db"]
+    },
+    workgroup: {
+      description: "Athena workgroup name (required) - workgroup to execute the query in",
+      examples: ["primary", "analytics", "dev", "prod"]
+    },
+    sql: {
+      description: "SQL query to execute (required) - valid Athena/Presto SQL statement",
+      examples: [
+        "SELECT * FROM my_table LIMIT 10",
+        "SELECT COUNT(*) FROM logs WHERE date = '2024-01-01'",
+        "SHOW TABLES"
+      ]
+    }
   }),
   handler: async (input: any) => {
     const start = await athena.send(new StartQueryExecutionCommand({
