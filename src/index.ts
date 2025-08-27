@@ -9,7 +9,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { logger } from "./debug.js";
-import { ParameterValidator, ToolDefinition } from "./parameterHandler.js";
+import { ParameterValidator, ToolDefinition, ParameterPrompt } from "./parameterHandler.js";
 
 import { s3List, s3GetText, s3PutText, s3ListBuckets } from "./tools/s3.js";
 import { cwQuery } from "./tools/cloudwatch.js";
@@ -20,6 +20,7 @@ import { rdsGetCpuMetrics, rdsGetTopSql } from "./tools/rds.js";
 import { athenaQuery } from "./tools/athena.js";
 import { stsAssume } from "./tools/sts.js";
 import { ceGetCost } from "./tools/cost.js";
+import { validateParameters } from "./tools/validation.js";
 
 const server = new Server({
   name: "mcp-aws",
@@ -31,6 +32,7 @@ const server = new Server({
 });
 
 const tools: ToolDefinition[] = [
+  validateParameters, // Put validation tool first for easy discovery
   s3ListBuckets, s3List, s3GetText, s3PutText,
   cwQuery,
   ecsListTasks,
@@ -43,14 +45,121 @@ const tools: ToolDefinition[] = [
   ceGetCost
 ];
 
+/**
+ * Enrich JSON schema with detailed parameter information for better AI understanding
+ */
+function enrichSchemaWithPrompts(zodSchema: z.ZodSchema, parameterPrompts: ParameterPrompt[]): any {
+  const baseSchema = zodSchema as any;
+  
+  // Convert Zod schema to JSON schema format
+  let jsonSchema: any = {};
+  
+  if (zodSchema instanceof z.ZodObject) {
+    const shape = zodSchema.shape;
+    const properties: any = {};
+    const required: string[] = [];
+    
+    for (const [key, fieldSchema] of Object.entries(shape)) {
+      const prompt = parameterPrompts.find(p => p.name === key);
+      const fieldDef = fieldSchema as any;
+      
+      // Extract basic type information
+      let propertySchema: any = {
+        type: getJsonSchemaType(fieldSchema),
+      };
+      
+      if (prompt) {
+        // Add rich description with examples and validation info
+        let description = prompt.description;
+        
+        if (prompt.examples && prompt.examples.length > 0) {
+          description += `\nExamples: ${prompt.examples.join(', ')}`;
+        }
+        
+        if (prompt.validation) {
+          const validation = prompt.validation;
+          if (validation.min !== undefined) {
+            propertySchema.minimum = validation.min;
+            description += `\nMinimum: ${validation.min}`;
+          }
+          if (validation.max !== undefined) {
+            propertySchema.maximum = validation.max;
+            description += `\nMaximum: ${validation.max}`;
+          }
+          if (validation.options) {
+            propertySchema.enum = validation.options;
+            description += `\nValid options: ${validation.options.join(', ')}`;
+          }
+          if (validation.pattern) {
+            propertySchema.pattern = validation.pattern;
+            description += `\nPattern: ${validation.pattern}`;
+          }
+        }
+        
+        if (prompt.defaultValue !== undefined) {
+          propertySchema.default = prompt.defaultValue;
+          description += `\nDefault: ${prompt.defaultValue}`;
+        }
+        
+        propertySchema.description = description;
+      }
+      
+      // Handle enum types
+      if (fieldSchema instanceof z.ZodEnum) {
+        propertySchema.enum = (fieldSchema as any)._def.values;
+      }
+      
+      // Handle default values from Zod
+      if (fieldSchema instanceof z.ZodDefault) {
+        propertySchema.default = (fieldSchema as any)._def.defaultValue();
+      } else if (!isZodOptional(fieldSchema)) {
+        required.push(key);
+      }
+      
+      properties[key] = propertySchema;
+    }
+    
+    jsonSchema = {
+      type: "object",
+      properties,
+      required: required.length > 0 ? required : undefined,
+      additionalProperties: false
+    };
+  }
+  
+  return jsonSchema;
+}
+
+function getJsonSchemaType(zodSchema: any): string {
+  if (zodSchema instanceof z.ZodString) return "string";
+  if (zodSchema instanceof z.ZodNumber) return "number"; 
+  if (zodSchema instanceof z.ZodBoolean) return "boolean";
+  if (zodSchema instanceof z.ZodArray) return "array";
+  if (zodSchema instanceof z.ZodEnum) return "string";
+  if (zodSchema instanceof z.ZodOptional) return getJsonSchemaType(zodSchema.unwrap());
+  if (zodSchema instanceof z.ZodDefault) return getJsonSchemaType((zodSchema as any).removeDefault());
+  return "string"; // fallback
+}
+
+function isZodOptional(schema: any): boolean {
+  return schema instanceof z.ZodOptional || 
+         schema instanceof z.ZodDefault ||
+         (schema._def && schema._def.typeName === 'ZodOptional');
+}
+
 // List tools handler
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema
-    }))
+    tools: tools.map(tool => {
+      // Enrich the schema with parameter prompts information
+      const enrichedSchema = enrichSchemaWithPrompts(tool.inputSchema, tool.parameterPrompts);
+      
+      return {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: enrichedSchema
+      };
+    })
   };
 });
 
@@ -72,7 +181,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (!validation.isValid) {
     if (validation.missingParams.length > 0) {
       // Generate user-friendly prompt for missing required parameters
-      const promptMessage = ParameterValidator.generateParameterPrompt(name, validation.missingParams);
+      let promptMessage = ParameterValidator.generateParameterPrompt(name, validation.missingParams);
+      
+      // Add suggestions if available
+      if (validation.suggestions && validation.suggestions.length > 0) {
+        promptMessage += "\n\nSuggestions:\n";
+        for (const suggestion of validation.suggestions) {
+          promptMessage += `  • ${suggestion}\n`;
+        }
+      }
+      
       logger.error(`Tool ${name} called with missing required parameters`, validation.missingParams.map(p => p.name));
       
       throw new McpError(ErrorCode.InvalidParams, promptMessage);

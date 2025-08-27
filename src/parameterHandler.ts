@@ -27,6 +27,45 @@ export interface ToolDefinition {
 
 export class ParameterValidator {
   
+  // Common parameter name mappings for intelligent suggestions
+  private static PARAMETER_ALIASES: Record<string, string[]> = {
+    'dbInstanceIdentifier': ['db_identifier', 'database_id', 'instance_name', 'db_name', 'rds_instance'],
+    'bucketName': ['bucket', 's3_bucket', 'bucket_id'],
+    'clusterName': ['cluster', 'ecs_cluster', 'cluster_id'],
+    'repositoryName': ['repository', 'repo', 'repo_name', 'ecr_repo'],
+    'query': ['sql', 'sql_query', 'log_query', 'search_query'],
+    'startTime': ['start', 'from', 'start_date', 'begin_time'],
+    'endTime': ['end', 'to', 'end_date', 'finish_time'],
+    'prefix': ['path', 'folder', 's3_prefix', 'object_prefix'],
+    'maxResults': ['limit', 'max_items', 'count', 'max_count'],
+    'tableName': ['table', 'athena_table', 'table_id'],
+    'database': ['db', 'athena_database', 'database_name'],
+    'roleArn': ['role', 'iam_role', 'assume_role', 'role_arn']
+  };
+  
+  /**
+   * Suggest correct parameter names based on common aliases
+   */
+  private static suggestParameterNames(providedParams: any, expectedParams: ParameterPrompt[]): string[] {
+    const suggestions: string[] = [];
+    const providedKeys = Object.keys(providedParams || {});
+    
+    for (const expectedParam of expectedParams) {
+      if (expectedParam.required && !providedParams[expectedParam.name]) {
+        // Look for potential aliases in provided parameters
+        const aliases = this.PARAMETER_ALIASES[expectedParam.name] || [];
+        
+        for (const providedKey of providedKeys) {
+          if (aliases.includes(providedKey.toLowerCase())) {
+            suggestions.push(`Did you mean '${expectedParam.name}' instead of '${providedKey}'?`);
+          }
+        }
+      }
+    }
+    
+    return suggestions;
+  }
+  
   /**
    * Validate parameters and generate user-friendly error messages for missing required params
    */
@@ -34,6 +73,7 @@ export class ParameterValidator {
     isValid: boolean; 
     missingParams: ParameterPrompt[]; 
     validationErrors: string[];
+    suggestions?: string[];
     validatedInput?: any;
   } {
     try {
@@ -74,7 +114,8 @@ export class ParameterValidator {
         return {
           isValid: false,
           missingParams,
-          validationErrors
+          validationErrors,
+          suggestions: this.suggestParameterNames(input, toolDef.parameterPrompts)
         };
       }
       
@@ -82,26 +123,52 @@ export class ParameterValidator {
       return {
         isValid: false,
         missingParams: [],
-        validationErrors: [`Validation failed: ${error}`]
+        validationErrors: [`Validation failed: ${error}`],
+        suggestions: []
       };
     }
   }
 
   /**
-   * Generate user-friendly prompt for missing parameters
+   * Generate user-friendly prompt for missing parameters with JSON example
    */
   static generateParameterPrompt(toolName: string, missingParams: ParameterPrompt[]): string {
     const lines = [
-      `Tool '${toolName}' requires the following parameters:`,
+      `MCP error -32602: Tool '${toolName}' requires the following parameters:`,
       ""
     ];
 
+    // Generate example JSON object
+    const exampleJson: any = {};
+    
     for (const param of missingParams) {
       lines.push(`**${param.name}** (${param.required ? 'required' : 'optional'})`);
       lines.push(`  ${param.description}`);
       
       if (param.examples && param.examples.length > 0) {
         lines.push(`  Examples: ${param.examples.join(', ')}`);
+        // Use first example for JSON template
+        exampleJson[param.name] = param.examples[0];
+      } else if (param.defaultValue !== undefined) {
+        exampleJson[param.name] = param.defaultValue;
+      } else {
+        // Provide placeholder based on type
+        switch (param.type) {
+          case 'string':
+            exampleJson[param.name] = param.validation?.options ? param.validation.options[0] : "example-value";
+            break;
+          case 'number':
+            exampleJson[param.name] = param.validation?.min || 1;
+            break;
+          case 'boolean':
+            exampleJson[param.name] = true;
+            break;
+          case 'array':
+            exampleJson[param.name] = ["example"];
+            break;
+          default:
+            exampleJson[param.name] = "example-value";
+        }
       }
       
       if (param.validation) {
@@ -124,6 +191,11 @@ export class ParameterValidator {
       lines.push("");
     }
 
+    lines.push("Example usage:");
+    lines.push("```json");
+    lines.push(JSON.stringify(exampleJson, null, 2));
+    lines.push("```");
+    lines.push("");
     lines.push("Please provide these parameters and try again.");
     return lines.join('\n');
   }
