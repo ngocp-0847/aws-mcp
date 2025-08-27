@@ -6,7 +6,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "debug": "tsx --inspect src/index.ts",
+    "debug-brk": "tsx --inspect-brk src/index.ts",
+    "test-tool": "tsx scripts/test-tool.ts",
+    "health-check": "tsx scripts/health-check.ts",
+    "logs": "tail -f debug.log"
   },
   "dependencies": {
     "@aws-sdk/client-athena": "^3.632.0",

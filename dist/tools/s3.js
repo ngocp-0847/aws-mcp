@@ -1,6 +1,20 @@
 import { z } from "zod";
 import { s3 } from "../awsClients.js";
-import { ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, GetObjectCommand, PutObjectCommand, ListBucketsCommand } from "@aws-sdk/client-s3";
+export const s3ListBuckets = {
+    name: "aws_s3_list_buckets",
+    description: "List all S3 buckets in the account.",
+    inputSchema: z.object({}),
+    handler: async (input) => {
+        const out = await s3.send(new ListBucketsCommand({}));
+        return {
+            buckets: (out.Buckets ?? []).map(bucket => ({
+                name: bucket.Name,
+                creationDate: bucket.CreationDate
+            }))
+        };
+    }
+};
 export const s3List = {
     name: "aws_s3_list",
     description: "List objects in S3 (bucket/prefix).",
